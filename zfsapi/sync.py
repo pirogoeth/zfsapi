@@ -3,8 +3,8 @@ Synchronization-related functionality
 '''
 
 import itertools
-from zfstools.util import simplify
-from zfstools.models import Snapshot
+from zfsapi.util import simplify
+from zfsapi.models import Snapshot
 import warnings
 
 # it is time to determine which datasets need to be synced

@@ -1,43 +1,63 @@
-'''
-Tree models for the ZFS tools
-'''
-
 from collections import OrderedDict
 
-class Dataset:
+class Dataset(object):
+
     name = None
     children = None
     parent = None
     invalidated = False
-    def __init__(self, name, parent=None):
+    
+    def __init__(self, name, parent = None):
+
         self.name = name
         self.children = []
+        self.properties = {}
+
         if parent:
             self.parent = parent
             self.parent.add_child(self)
 
+    def __getitem__(self, prop):
+
+        return self.properties[prop]
+    
+    def __setitem__(self, prop):
+
+        # XXX - complete this!
+        pass
+
+    def _parse_zfs_properties(self, data):
+
+        self.properties = OrderedDict([s.strip().split("\t")
+            for s in data.splitlines() if s.strip()])
+
     def add_child(self, child):
+        
         self.children.append(child)
         return child
 
     def get_child(self, name):
-        child = [ c for c in self.children if c.name == name and isinstance(c, Dataset) ]
+        
+        child = [c for c in self.children if c.name == name and isinstance(c, Dataset)]
         assert len(child) < 2
         if not child: raise KeyError, name
         return child[0]
 
-    def get_snapshots(self, flt=True):
-        if flt is True: flt = lambda x:True
-        children = [ c for c in self.children if isinstance(c, Snapshot) and flt(c) ]
+    def get_snapshots(self, flt = True):
+        
+        if flt is True: flt = lambda x: True
+        children = [c for c in self.children if isinstance(c, Snapshot) and flt(c)]
         return children
 
     def get_snapshot(self, name):
-        children = [ c for c in self.get_snapshots() if c.name == name ]
+        
+        children = [c for c in self.get_snapshots() if c.name == name]
         assert len(children) < 2
         if not children: raise KeyError, name
         return children[0]
 
     def lookup(self, name):  # FINISH THIS
+        
         if "@" in name:
             path, snapshot = name.split("@")
         else:
@@ -60,6 +80,7 @@ class Dataset:
         return dset
 
     def remove(self, child):
+        
         if child not in self.children: raise KeyError, child.name
         child.invalidated = True
         child.parent = None
@@ -68,14 +89,17 @@ class Dataset:
             child.remove(c)
 
     def get_path(self):
+        
         if not self.parent: return self.name
         return "%s/%s" % (self.parent.get_path(), self.name)
 
     def get_relative_name(self):
+        
         if not self.parent: return self.name
         return self.get_path()[len(self.parent.get_path()) + 1:]
 
     def walk(self):
+        
         assert not self.invalidated, "%s invalidated" % self
         yield self
         for c in self.children:
@@ -83,41 +107,62 @@ class Dataset:
                 yield element
 
     def __iter__(self):
+        
         return self.walk()
 
     def __str__(self):
-        return "<Dataset:  %s>" % self.get_path()
-    __repr__ = __str__
+
+        return "<Dataset:  %s>" % (self.get_path())
+
+    def __repr__(self):
+
+        return self.__str__()
 
     def get_creation(self):
+        
         return self._creation
 
 
 class Pool(Dataset):
+
     def __str__(self):
-        return "<Pool:     %s>" % self.get_path()
-    __repr__ = __str__
+    
+        return "<Pool:     %s>" % (self.get_path())
+    
+    def __repr__(self):
+        
+        return self.__str__()
 
 
 class Snapshot(Dataset):
+
     # def __init__(self,name):
         # Dataset.__init__(self,name)
+    
     def get_path(self):
+    
         if not self.parent: return self.name
         return "%s@%s" % (self.parent.get_path(), self.name)
 
     def __str__(self):
+        
         return "<Snapshot: %s>" % self.get_path()
-    __repr__ = __str__
+    
+    def __repr__(self):
+
+        return self.__str__()
 
 
-class PoolSet:  # maybe rewrite this as a dataset or something?
+class PoolSet(object):  # maybe rewrite this as a dataset or something?
+
     pools = None
 
     def __init__(self):
+        
         self.pools = {}
 
     def lookup(self, name):
+
         if "@" in name:
             path, snapshot = name.split("@")
         else:
@@ -142,10 +187,11 @@ class PoolSet:  # maybe rewrite this as a dataset or something?
     def parse_zfs_r_output(self, creationtimes):
 
         # make into array
-        creations = OrderedDict([ s.strip().split("\t") for s in creationtimes.splitlines() if s.strip() ])
+        creations = OrderedDict([s.strip().split("\t") 
+            for s in creationtimes.splitlines() if s.strip()])
 
         # names of pools
-        old_dsets = [ x.get_path() for x in self.walk() ]
+        old_dsets = [x.get_path() for x in self.walk()]
         old_dsets.reverse()
         new_dsets = creations.keys()
 
@@ -167,7 +213,7 @@ class PoolSet:  # maybe rewrite this as a dataset or something?
                     fs = Dataset(pcomp, fs)
 
             if snapshot:
-                if snapshot not in [ x.name for x in fs.children ]:
+                if snapshot not in [x.name for x in fs.children]:
                     fs = Snapshot(snapshot, fs)
 
             fs._creation = creations[fs.get_path()]
@@ -181,22 +227,30 @@ class PoolSet:  # maybe rewrite this as a dataset or something?
                     d.parent.remove(d)
 
     def remove(self, name):  # takes a NAME, unlike the child that is taken in the remove of the dataset method
+
         for c in self.pools[name].children:
             self.pools[name].remove(c)
         self.pools[name].invalidated = True
         del self.pools[name]
 
     def __getitem__(self, name):
+        
         return self.pools[name]
 
     def __str__(self):
+        
         return "<PoolSet at %s>" % id(self)
-    __repr__ = __str__
+
+    def __repr__(self):
+
+        return self.__str__()
 
     def walk(self):
+
         for item in self.pools.values():
             for dset in item.walk():
                 yield dset
 
     def __iter__(self):
+        
         return self.walk()

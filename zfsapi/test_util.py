@@ -1,8 +1,8 @@
 '''
-Tests for the zfstools.util module
+Tests for the zfsapi.util module
 '''
 import unittest
-from zfstools import util as zfsutils
+from zfsapi import util as zfsutils
 
 
 class TestSimplify(unittest.TestCase):

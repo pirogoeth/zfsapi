@@ -4,8 +4,8 @@ Created on Mar 19, 2013
 @author: rudd-o
 '''
 import unittest
-from zfstools.models import PoolSet
-from zfstools import sync
+from zfsapi.models import PoolSet
+from zfsapi import sync
 
 def x(string):
     return "\n".join(
